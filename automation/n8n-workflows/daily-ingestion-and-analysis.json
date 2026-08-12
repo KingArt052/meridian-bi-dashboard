@@ -1,0 +1,122 @@
+{
+  "name": "BI Dashboard - Daily Ingestion, Analysis & Alerts",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 6 * * *" }] }
+      },
+      "id": "schedule_trigger",
+      "name": "Daily 6AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "mode": "list", "value": "={{$json.sheet_id}}" },
+        "sheetName": { "mode": "list", "value": "Metrics" }
+      },
+      "id": "sheets_read",
+      "name": "Read Google Sheet (per company)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [420, 300],
+      "notes": "One workflow branch/execution per company. Sheet ID mapped from a lookup list of active companies (config node not shown) so new portfolio companies just need a row added to the config sheet."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize raw sheet rows into the ingest API's expected shape.\n// Handles column-name variance and blank rows defensively.\nconst rows = $input.all().map(item => item.json).filter(r => r.metric_type && r.period && r.value !== undefined && r.value !== '');\n\nreturn [{\n  json: {\n    company_id: $('Set Company Context').first().json.company_id,\n    source: 'google_sheets',\n    rows: rows.map(r => ({\n      metric_type: r.metric_type,\n      period: r.period,\n      value: Number(r.value),\n      category: r.category || ''\n    }))\n  }\n}];"
+      },
+      "id": "normalize_rows",
+      "name": "Normalize & Validate Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.BI_API_BASE_URL}}/api/ingest",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "x-ingest-key", "value": "={{$env.BI_INGEST_API_KEY}}" }]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": { "timeout": 15000 }
+      },
+      "id": "post_ingest",
+      "name": "POST /api/ingest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 300],
+      "notes": "Backend responds with ingest status PLUS anomalies/alerts created for this company in the same call, since ingest triggers detection server-side."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{$json.alerts.created}}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if_alerts",
+      "name": "New Alerts?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1080, 300]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": { "mode": "id", "value": "={{$env.SLACK_ALERT_CHANNEL_ID}}" },
+        "text": "=:rotating_light: *{{$json.anomalies.anomaliesCreated}} new anomal{{$json.anomalies.anomaliesCreated === 1 ? 'y' : 'ies'}} detected*\nCompany data just synced and the analysis engine flagged something worth a look. Open the dashboard's Alerts page for details.",
+        "otherOptions": {}
+      },
+      "id": "slack_notify",
+      "name": "Notify Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [1300, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.BI_API_BASE_URL}}/api/insights/generate",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "x-ingest-key", "value": "={{$env.BI_INGEST_API_KEY}}" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ company_id: $('Set Company Context').first().json.company_id, force: false }) }}"
+      },
+      "id": "generate_insight",
+      "name": "Generate AI Executive Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 380],
+      "notes": "Runs regardless of whether anomalies were found — the weekly/monthly digest needs a summary either way. Caching in the backend means this is a no-op cost-wise if nothing changed since the last run."
+    }
+  ],
+  "connections": {
+    "Daily 6AM Trigger": { "main": [[{ "node": "Read Google Sheet (per company)", "type": "main", "index": 0 }]] },
+    "Read Google Sheet (per company)": { "main": [[{ "node": "Normalize & Validate Rows", "type": "main", "index": 0 }]] },
+    "Normalize & Validate Rows": { "main": [[{ "node": "POST /api/ingest", "type": "main", "index": 0 }]] },
+    "POST /api/ingest": { "main": [[{ "node": "New Alerts?", "type": "main", "index": 0 }]] },
+    "New Alerts?": {
+      "main": [
+        [{ "node": "Notify Slack", "type": "main", "index": 0 }],
+        [{ "node": "Generate AI Executive Summary", "type": "main", "index": 0 }]
+      ]
+    },
+    "Notify Slack": { "main": [[{ "node": "Generate AI Executive Summary", "type": "main", "index": 0 }]] }
+  },
+  "meta": { "note": "Simplified reference export — see automation/n8n-workflows/README.md for setup, per-company fan-out, and required environment variables." }
+}

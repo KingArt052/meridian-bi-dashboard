@@ -1,0 +1,74 @@
+:root {
+  /* Color tokens — "Meridian" theme: institutional, numbers-first, quiet confidence */
+  --bg: #0a0e14;
+  --surface: #12161f;
+  --surface-raised: #171c27;
+  --surface-hover: #1c2230;
+  --border: #232a38;
+  --border-strong: #2f3849;
+
+  --text-primary: #e8ecf3;
+  --text-secondary: #9aa4b8;
+  --text-muted: #5c6577;
+
+  --accent-positive: #34c97a;
+  --accent-positive-dim: #1c4d33;
+  --accent-negative: #e5484d;
+  --accent-negative-dim: #4d2226;
+  --accent-warning: #e8a23d;
+  --accent-warning-dim: #4d3a1c;
+  --accent-brand: #5b8def;
+  --accent-brand-dim: #1c2c4d;
+
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SF Mono', Menlo, monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; }
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+::selection {
+  background: var(--accent-brand-dim);
+  color: var(--text-primary);
+}
+
+/* Utility: numeric/tabular figures always use the mono face — the app's
+   signature typographic choice, so every financial figure reads as data,
+   not prose. */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
