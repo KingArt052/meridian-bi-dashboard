@@ -1,4 +1,7 @@
 # Meridian — AI-Powered Portfolio Intelligence Dashboard
+> **Portfolio Project — Full-Stack AI, Automation & Business Intelligence**
+
+Meridian is a full-stack portfolio intelligence platform designed to help business leaders monitor company performance, detect anomalies, manage operational alerts, and turn financial and operational data into decision-ready insights.
 
 An internal Business Intelligence & Automation system for a holding company
 that invests in multiple businesses. It ingests operational metrics from
